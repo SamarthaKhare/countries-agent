@@ -22,7 +22,7 @@ import logging
 import os
 from typing import Any, Dict, List
 
-from openai import OpenAI, APIError
+from openai import AsyncOpenAI, APIError
 
 from .prompts import (
     IDENTIFY_SYSTEM,
@@ -72,16 +72,16 @@ _cfg = _PROVIDERS[_PROVIDER]
 _api_key = os.getenv(_cfg["api_key_env"], "missing")
 _MODEL = _cfg["model"]
 
-_client = OpenAI(api_key=_api_key, base_url=_cfg["base_url"])
+_client = AsyncOpenAI(api_key=_api_key, base_url=_cfg["base_url"])
 
 logger.info("LLM provider=%s  model=%s", _PROVIDER, _MODEL)
 
 
 # ── Shared LLM call helper ────────────────────────────────────────────────────
 
-def _chat(system: str, user: str, max_tokens: int = 512) -> str:
-    """Single synchronous chat completion. Returns the assistant text."""
-    response = _client.chat.completions.create(
+async def _chat(system: str, user: str, max_tokens: int = 512) -> str:
+    """Async chat completion — frees the event loop while waiting for the LLM."""
+    response = await _client.chat.completions.create(
         model=_MODEL,
         max_tokens=max_tokens,
         messages=[
@@ -100,7 +100,7 @@ async def identify_node(state: AgentState) -> Dict[str, Any]:
     logger.info("[identify_node] Parsing query: %r", query)
 
     try:
-        raw_text = _chat(
+        raw_text = await _chat(
             system=IDENTIFY_SYSTEM,
             user=IDENTIFY_USER.format(query=query),
             max_tokens=256,
@@ -187,7 +187,7 @@ async def synthesize_node(state: AgentState) -> Dict[str, Any]:
     logger.info("[synthesize_node] Synthesising | fields=%s", fields)
 
     try:
-        answer = _chat(
+        answer = await _chat(
             system=SYNTHESIZE_SYSTEM,
             user=SYNTHESIZE_USER.format(
                 query=query,

@@ -25,6 +25,12 @@ def _make_llm_response(text: str):
     response.choices[0].message.content = text
     return response
 
+def _async_llm_response(text: str):
+    """Wrap _make_llm_response in an AsyncMock so await works on the patched client."""
+    mock = AsyncMock()
+    mock.return_value = _make_llm_response(text)
+    return mock
+
 
 GERMANY_DATA = {
     "common_name": "Germany",
@@ -60,7 +66,7 @@ async def test_identify_node_success():
     })
 
     with patch("agent.nodes._client") as mock_client:
-        mock_client.chat.completions.create.return_value = _make_llm_response(llm_json)
+        mock_client.chat.completions.create = _async_llm_response(llm_json)
         result = await identify_node(state)
 
     assert result["country_name"] == "Germany"
@@ -80,7 +86,7 @@ async def test_identify_node_invalid_query():
     })
 
     with patch("agent.nodes._client") as mock_client:
-        mock_client.chat.completions.create.return_value = _make_llm_response(llm_json)
+        mock_client.chat.completions.create = _async_llm_response(llm_json)
         result = await identify_node(state)
 
     assert result.get("error") is not None
@@ -98,7 +104,7 @@ async def test_identify_node_no_country():
     })
 
     with patch("agent.nodes._client") as mock_client:
-        mock_client.chat.completions.create.return_value = _make_llm_response(llm_json)
+        mock_client.chat.completions.create = _async_llm_response(llm_json)
         result = await identify_node(state)
 
     assert result.get("error") is not None
@@ -151,7 +157,7 @@ async def test_synthesize_node_success():
     expected_answer = "The population of Germany is approximately 83,240,525."
 
     with patch("agent.nodes._client") as mock_client:
-        mock_client.chat.completions.create.return_value = _make_llm_response(expected_answer)
+        mock_client.chat.completions.create = _async_llm_response(expected_answer)
         result = await synthesize_node(state)
 
     assert result["answer"] == expected_answer
@@ -176,7 +182,7 @@ async def test_full_graph_happy_path():
 
     call_count = 0
 
-    def fake_create(**kwargs):
+    async def fake_create(**kwargs):
         nonlocal call_count
         call_count += 1
         text = identify_json if call_count == 1 else final_answer
@@ -186,7 +192,7 @@ async def test_full_graph_happy_path():
 
     with patch("agent.nodes._client") as mock_client, \
          patch("agent.nodes.fetch_country", new_callable=AsyncMock) as mock_fetch:
-        mock_client.chat.completions.create.side_effect = fake_create
+        mock_client.chat.completions.create = fake_create
         mock_fetch.return_value = GERMANY_DATA
 
         result = await graph.ainvoke(initial_state("What is the population of Germany?"))
