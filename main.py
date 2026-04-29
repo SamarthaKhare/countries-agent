@@ -22,6 +22,9 @@ import os
 import sys
 
 import uvicorn
+from dotenv import load_dotenv
+
+load_dotenv()  # loads GROQ_API_KEY (and others) from .env before anything else runs
 
 from api.server import app  
 
