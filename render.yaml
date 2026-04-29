@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: countries-agent
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false          # Set this manually in the Render dashboard
+      - key: LLM_PROVIDER
+        value: groq
+      - key: LOG_LEVEL
+        value: info
+    healthCheckPath: /api/health
+    autoDeploy: true

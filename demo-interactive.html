@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Countries Agent — Interactive Demo</title>
+<style>
+  :root {
+    --midnight: #21295C;
+    --deep: #065A82;
+    --teal: #1C7293;
+    --ice: #CADCFC;
+    --light-bg: #EEF5FB;
+    --accent: #02C39A;
+    --error: #C0392B;
+    --white: #ffffff;
+    --body: #1E3A4F;
+    --muted: #4A6A82;
+    --code-bg: #0D1B2A;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--light-bg);
+    color: var(--body);
+    min-height: 100vh;
+  }
+
+  /* ── Nav ── */
+  nav {
+    background: var(--midnight);
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    height: 52px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: 0 2px 12px rgba(0,0,0,.35);
+  }
+  nav .brand { color: var(--white); font-weight: 700; font-size: 1.05rem; letter-spacing: .02em; }
+  nav .brand span { color: var(--accent); }
+  nav a {
+    color: var(--ice); font-size: .88rem; text-decoration: none;
+    padding: .25rem 0; border-bottom: 2px solid transparent; transition: all .2s;
+  }
+  nav a:hover, nav a.active { color: var(--white); border-color: var(--accent); }
+
+  /* ── Sections ── */
+  section { display: none; padding: 2.5rem 2rem; max-width: 960px; margin: 0 auto; }
+  section.active { display: block; }
+
+  h2 { font-size: 1.6rem; font-weight: 700; color: var(--midnight); margin-bottom: .4rem; }
+  .divider { height: 3px; background: var(--teal); border-radius: 2px; margin-bottom: 1.8rem; width: 60px; }
+  p.lead { color: var(--muted); margin-bottom: 1.6rem; line-height: 1.65; }
+
+  /* ── Architecture ── */
+  .arch-wrapper {
+    background: var(--white);
+    border: 1.5px solid var(--teal);
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 20px rgba(6,90,130,.10);
+    margin-bottom: 1.5rem;
+  }
+  .arch-label {
+    text-align: center; font-size: .78rem; font-weight: 600;
+    color: var(--teal); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 1rem;
+  }
+  .arch-flow {
+    display: flex; align-items: center; justify-content: center;
+    gap: 0; flex-wrap: wrap;
+  }
+  .arch-node {
+    background: var(--deep); color: var(--white);
+    border-radius: 8px; padding: 1rem 1.25rem;
+    text-align: center; min-width: 140px;
+    box-shadow: 0 3px 10px rgba(6,90,130,.25);
+    transition: transform .2s;
+  }
+  .arch-node:hover { transform: translateY(-3px); }
+  .arch-node .node-title { font-weight: 700; font-size: .95rem; }
+  .arch-node .node-sub { font-size: .72rem; color: var(--ice); margin-top: .3rem; }
+  .arch-arrow {
+    width: 40px; text-align: center; color: var(--accent);
+    font-size: 1.4rem; flex-shrink: 0;
+  }
+  .arch-error {
+    text-align: center; margin-top: 1rem;
+    font-size: .8rem; color: var(--error); font-style: italic;
+    border-top: 1px dashed var(--error); padding-top: .6rem;
+  }
+  .fastapi-bar {
+    background: var(--midnight); color: var(--white);
+    border-radius: 8px; padding: .7rem 1rem;
+    text-align: center; font-size: .85rem; margin-top: 1rem;
+    letter-spacing: .03em;
+  }
+  .fastapi-bar span { color: var(--accent); font-weight: 600; }
+
+  /* ── Agent Flow ── */
+  .examples-tabs {
+    display: flex; gap: .5rem; margin-bottom: 1.2rem; flex-wrap: wrap;
+  }
+  .tab-btn {
+    padding: .4rem 1rem; border: 1.5px solid var(--teal); border-radius: 20px;
+    background: transparent; color: var(--teal); font-size: .85rem; cursor: pointer;
+    transition: all .2s; font-family: inherit;
+  }
+  .tab-btn:hover { background: var(--teal); color: var(--white); }
+  .tab-btn.active { background: var(--teal); color: var(--white); }
+
+  .flow-container { display: none; }
+  .flow-container.active { display: block; }
+
+  .query-banner {
+    background: var(--midnight); color: var(--ice);
+    border-radius: 8px; padding: .7rem 1.1rem; font-size: .9rem;
+    margin-bottom: 1.2rem; font-style: italic;
+  }
+  .query-banner strong { color: var(--white); font-style: normal; }
+
+  .step-list { display: flex; flex-direction: column; gap: .8rem; margin-bottom: 1rem; }
+  .step {
+    display: flex; gap: 0; border-radius: 8px; overflow: hidden;
+    border: 1.5px solid; box-shadow: 0 2px 8px rgba(0,0,0,.08);
+    opacity: 0; transform: translateY(12px);
+    transition: opacity .4s ease, transform .4s ease;
+  }
+  .step.visible { opacity: 1; transform: translateY(0); }
+  .step.error-step { border-color: var(--error) !important; }
+  .step.skipped-step { border-color: #9E9E9E !important; opacity: .7; }
+
+  .step-label {
+    min-width: 130px; padding: .8rem .7rem;
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; gap: .3rem; text-align: center;
+  }
+  .step-label .step-num { font-size: .72rem; font-weight: 700; color: var(--white); letter-spacing: .06em; }
+  .step-label .step-name { font-size: .8rem; font-weight: 700; color: var(--white); }
+  .step-content {
+    flex: 1; padding: .75rem 1rem; background: var(--white);
+    font-family: 'Consolas', 'Courier New', monospace; font-size: .8rem;
+    color: var(--body); line-height: 1.55; white-space: pre-wrap; word-break: break-word;
+  }
+  .step-content.err { color: var(--error); }
+
+  .result-box {
+    border-radius: 8px; padding: .75rem 1rem;
+    font-family: monospace; font-size: .8rem; line-height: 1.5;
+    border: 1.5px solid;
+  }
+  .result-box.success { border-color: var(--accent); background: rgba(2,195,154,.07); color: var(--body); }
+  .result-box.failure { border-color: var(--error); background: rgba(192,57,43,.07); color: var(--error); }
+
+  .run-btn {
+    background: var(--accent); color: var(--midnight);
+    border: none; border-radius: 20px; padding: .5rem 1.4rem;
+    font-weight: 700; font-size: .88rem; cursor: pointer; font-family: inherit;
+    transition: opacity .2s; margin-bottom: 1.2rem;
+  }
+  .run-btn:hover { opacity: .85; }
+  .run-btn:disabled { opacity: .4; cursor: default; }
+
+  /* ── Production ── */
+  .prod-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem; margin-bottom: 1.5rem;
+  }
+  .prod-card {
+    background: var(--white); border-radius: 10px;
+    border-left: 4px solid; padding: 1rem 1rem 1rem 1.1rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,.07);
+  }
+  .prod-card h4 { font-size: .9rem; font-weight: 700; margin-bottom: .5rem; }
+  .prod-card ul { padding-left: 1rem; font-size: .83rem; color: var(--muted); line-height: 1.7; }
+
+  /* ── Limitations ── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; }
+  @media (max-width: 600px) { .two-col { grid-template-columns: 1fr; } .arch-flow { flex-direction: column; } .arch-arrow { transform: rotate(90deg); } }
+
+  .limit-card {
+    background: var(--white); border-radius: 10px; padding: 1.2rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,.07);
+  }
+  .limit-card h4 { font-size: .95rem; font-weight: 700; margin-bottom: .8rem; }
+  .limit-card ul { padding-left: 1.1rem; font-size: .83rem; line-height: 1.8; }
+  .limit-card.red h4 { color: var(--error); }
+  .limit-card.red { border: 1.5px solid var(--error); }
+  .limit-card.blue h4 { color: var(--deep); }
+  .limit-card.blue { border: 1.5px solid var(--deep); }
+
+  /* ── Spinner ── */
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner {
+    display: inline-block; width: 14px; height: 14px; border: 2px solid var(--midnight);
+    border-top-color: transparent; border-radius: 50%;
+    animation: spin .7s linear infinite; vertical-align: middle; margin-right: .4rem;
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="brand">Countries <span>Agent</span></div>
+  <a href="#" class="active" data-section="architecture">Architecture</a>
+  <a href="#" data-section="flow">Agent Flow</a>
+  <a href="#" data-section="production">Production</a>
+  <a href="#" data-section="limitations">Limitations</a>
+</nav>
+
+<!-- ══════════════════════════════════════════════════════ ARCHITECTURE -->
+<section id="architecture" class="active">
+  <h2>Architecture Overview</h2>
+  <div class="divider"></div>
+  <p class="lead">
+    A three-node <strong>LangGraph StateGraph</strong> orchestrates the full query lifecycle —
+    intent parsing, API retrieval, and answer synthesis — each concern isolated in its own node
+    and wired together with explicit conditional error routing.
+  </p>
+
+  <div class="arch-wrapper">
+    <div class="arch-label">LangGraph StateGraph</div>
+    <div class="arch-flow">
+      <div class="arch-node">
+        <div class="node-title">IDENTIFY</div>
+        <div class="node-sub">Groq / LLaMA-3.3-70B</div>
+      </div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-node">
+        <div class="node-title">FETCH</div>
+        <div class="node-sub">restcountries.com</div>
+      </div>
+      <div class="arch-arrow">→</div>
+      <div class="arch-node">
+        <div class="node-title">SYNTHESIZE</div>
+        <div class="node-sub">Groq / LLaMA-3.3-70B</div>
+      </div>
+    </div>
+    <div class="arch-error">
+      ↓ conditional edge — if any node sets <code>error</code>, graph routes immediately to END
+    </div>
+    <div class="fastapi-bar">
+      <span>FastAPI</span> &nbsp;·&nbsp; POST /api/query &nbsp;·&nbsp; GET /api/health &nbsp;·&nbsp; Swagger /docs
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;">
+    <div style="background:var(--white);border-radius:10px;padding:1.1rem;border-left:4px solid var(--deep);box-shadow:0 2px 10px rgba(0,0,0,.07)">
+      <strong style="color:var(--deep);font-size:.9rem;">① IDENTIFY</strong>
+      <p style="font-size:.82rem;color:var(--muted);margin-top:.5rem;line-height:1.6">
+        Sends the raw query to the LLM and returns structured JSON: country name, requested fields, and a validity flag.
+      </p>
+    </div>
+    <div style="background:var(--white);border-radius:10px;padding:1.1rem;border-left:4px solid var(--teal);box-shadow:0 2px 10px rgba(0,0,0,.07)">
+      <strong style="color:var(--teal);font-size:.9rem;">② FETCH</strong>
+      <p style="font-size:.82rem;color:var(--muted);margin-top:.5rem;line-height:1.6">
+        No LLM involved. Calls restcountries.com, normalises the raw schema, handles 404 / 5xx errors.
+      </p>
+    </div>
+    <div style="background:var(--white);border-radius:10px;padding:1.1rem;border-left:4px solid var(--midnight);box-shadow:0 2px 10px rgba(0,0,0,.07)">
+      <strong style="color:var(--midnight);font-size:.9rem;">③ SYNTHESIZE</strong>
+      <p style="font-size:.82rem;color:var(--muted);margin-top:.5rem;line-height:1.6">
+        Grounds the answer entirely in the API data — no hallucination possible. Produces a natural-language response.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════ FLOW -->
+<section id="flow">
+  <h2>Agent Flow</h2>
+  <div class="divider"></div>
+  <p class="lead">Step through each example to see exactly how the agent processes a query, including what each node receives and returns.</p>
+
+  <div class="examples-tabs">
+    <button class="tab-btn active" data-flow="germany">Germany population</button>
+    <button class="tab-btn" data-flow="japan">Japan currency</button>
+    <button class="tab-btn" data-flow="invalid">Invalid query</button>
+    <button class="tab-btn" data-flow="notfound">Country not found</button>
+  </div>
+
+  <!-- Germany -->
+  <div class="flow-container active" id="flow-germany">
+    <div class="query-banner"><strong>Query:</strong> "What is the population of Germany?"</div>
+    <button class="run-btn" id="run-germany">▶ Run step-by-step</button>
+    <div class="step-list" id="steps-germany">
+      <div class="step" style="border-color:var(--deep)">
+        <div class="step-label" style="background:var(--deep)">
+          <div class="step-num">NODE 1</div><div class="step-name">IDENTIFY</div>
+        </div>
+        <div class="step-content">LLM parses query →
+{ "country_name": "Germany",
+  "requested_fields": ["population"],
+  "is_valid_query": true,
+  "rejection_reason": null }</div>
+      </div>
+      <div class="step" style="border-color:var(--teal)">
+        <div class="step-label" style="background:var(--teal)">
+          <div class="step-num">NODE 2</div><div class="step-name">FETCH</div>
+        </div>
+        <div class="step-content">GET restcountries.com/v3.1/name/germany  →  200 OK
+Normalised →
+{ "common_name": "Germany", "population": 83240525,
+  "capital": ["Berlin"], "region": "Europe", ... }</div>
+      </div>
+      <div class="step" style="border-color:var(--midnight)">
+        <div class="step-label" style="background:var(--midnight)">
+          <div class="step-num">NODE 3</div><div class="step-name">SYNTHESIZE</div>
+        </div>
+        <div class="step-content">LLM grounds answer in API data →
+"The population of Germany is approximately 83,240,525."</div>
+      </div>
+    </div>
+    <div class="result-box success" id="result-germany" style="display:none">
+✅ { "answer": "The population of Germany is approximately 83,240,525.",
+   "country_name": "Germany", "requested_fields": ["population"],
+   "steps": ["identify_node: ...", "fetch_node: ...", "synthesize_node: ..."],
+   "success": true, "duration_ms": 1430 }</div>
+  </div>
+
+  <!-- Japan -->
+  <div class="flow-container" id="flow-japan">
+    <div class="query-banner"><strong>Query:</strong> "What currency does Japan use?"</div>
+    <button class="run-btn" id="run-japan">▶ Run step-by-step</button>
+    <div class="step-list" id="steps-japan">
+      <div class="step" style="border-color:var(--deep)">
+        <div class="step-label" style="background:var(--deep)">
+          <div class="step-num">NODE 1</div><div class="step-name">IDENTIFY</div>
+        </div>
+        <div class="step-content">LLM parses query →
+{ "country_name": "Japan",
+  "requested_fields": ["currencies"],
+  "is_valid_query": true }</div>
+      </div>
+      <div class="step" style="border-color:var(--teal)">
+        <div class="step-label" style="background:var(--teal)">
+          <div class="step-num">NODE 2</div><div class="step-name">FETCH</div>
+        </div>
+        <div class="step-content">GET restcountries.com/v3.1/name/japan  →  200 OK
+Normalised →
+{ "currencies": [{ "code": "JPY", "name": "Japanese yen", "symbol": "¥" }], ... }</div>
+      </div>
+      <div class="step" style="border-color:var(--midnight)">
+        <div class="step-label" style="background:var(--midnight)">
+          <div class="step-num">NODE 3</div><div class="step-name">SYNTHESIZE</div>
+        </div>
+        <div class="step-content">LLM grounds answer →
+"Japan's official currency is the Japanese Yen (¥), currency code JPY."</div>
+      </div>
+    </div>
+    <div class="result-box success" id="result-japan" style="display:none">
+✅ { "answer": "Japan's official currency is the Japanese Yen (¥), currency code JPY.",
+   "country_name": "Japan", "requested_fields": ["currencies"],
+   "success": true, "duration_ms": 1621 }</div>
+  </div>
+
+  <!-- Invalid query -->
+  <div class="flow-container" id="flow-invalid">
+    <div class="query-banner"><strong>Query:</strong> "Write me a poem about dogs."</div>
+    <button class="run-btn" id="run-invalid">▶ Run step-by-step</button>
+    <div class="step-list" id="steps-invalid">
+      <div class="step error-step" style="border-color:var(--error)">
+        <div class="step-label" style="background:var(--deep)">
+          <div class="step-num">NODE 1</div><div class="step-name">IDENTIFY</div>
+        </div>
+        <div class="step-content err">LLM rejects query →
+{ "is_valid_query": false,
+  "rejection_reason": "Query is not about country information." }
+
+↳ error field set — conditional edge routes to END</div>
+      </div>
+      <div class="step skipped-step">
+        <div class="step-label" style="background:#9E9E9E">
+          <div class="step-num">NODE 2</div><div class="step-name">SKIPPED</div>
+        </div>
+        <div class="step-content" style="color:var(--muted);font-style:italic">FETCH never called — error path taken at IDENTIFY</div>
+      </div>
+      <div class="step skipped-step">
+        <div class="step-label" style="background:#9E9E9E">
+          <div class="step-num">NODE 3</div><div class="step-name">SKIPPED</div>
+        </div>
+        <div class="step-content" style="color:var(--muted);font-style:italic">SYNTHESIZE never called</div>
+      </div>
+    </div>
+    <div class="result-box failure" id="result-invalid" style="display:none">
+❌ { "error": "Query is not about country information.",
+   "success": false, "answer": null }</div>
+  </div>
+
+  <!-- Not found -->
+  <div class="flow-container" id="flow-notfound">
+    <div class="query-banner"><strong>Query:</strong> "What is the capital of Narnia?"</div>
+    <button class="run-btn" id="run-notfound">▶ Run step-by-step</button>
+    <div class="step-list" id="steps-notfound">
+      <div class="step" style="border-color:var(--deep)">
+        <div class="step-label" style="background:var(--deep)">
+          <div class="step-num">NODE 1</div><div class="step-name">IDENTIFY</div>
+        </div>
+        <div class="step-content">{ "country_name": "Narnia", "is_valid_query": true }  ✓ passes</div>
+      </div>
+      <div class="step error-step">
+        <div class="step-label" style="background:var(--error)">
+          <div class="step-num">NODE 2</div><div class="step-name">FETCH</div>
+        </div>
+        <div class="step-content err">GET /name/narnia  →  404 Not Found
+CountryNotFoundError raised
+↳ error field set — conditional edge routes to END</div>
+      </div>
+      <div class="step skipped-step">
+        <div class="step-label" style="background:#9E9E9E">
+          <div class="step-num">NODE 3</div><div class="step-name">SKIPPED</div>
+        </div>
+        <div class="step-content" style="color:var(--muted);font-style:italic">SYNTHESIZE never called</div>
+      </div>
+    </div>
+    <div class="result-box failure" id="result-notfound" style="display:none">
+❌ { "error": "Country not found: No country found matching 'Narnia'.",
+   "success": false, "answer": null }</div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════ PRODUCTION -->
+<section id="production">
+  <h2>Production Behaviour</h2>
+  <div class="divider"></div>
+  <p class="lead">The agent is designed to be production-ready: containerised, observable, and hardened against common failure modes.</p>
+
+  <div class="prod-grid">
+    <div class="prod-card" style="border-color:var(--deep)">
+      <h4 style="color:var(--deep)">Docker / Multi-Stage Build</h4>
+      <ul>
+        <li>python:3.12-slim base</li>
+        <li>Non-root app user</li>
+        <li>Layer-cached deps</li>
+        <li>30s health checks</li>
+      </ul>
+    </div>
+    <div class="prod-card" style="border-color:var(--teal)">
+      <h4 style="color:var(--teal)">FastAPI + Swagger</h4>
+      <ul>
+        <li>POST /api/query</li>
+        <li>GET /api/health</li>
+        <li>Interactive /docs UI</li>
+        <li>Pydantic validation</li>
+      </ul>
+    </div>
+    <div class="prod-card" style="border-color:var(--midnight)">
+      <h4 style="color:var(--midnight)">Error Boundaries</h4>
+      <ul>
+        <li>CountryNotFoundError</li>
+        <li>APIConnectionError</li>
+        <li>LLM APIError</li>
+        <li>JSON parse failures</li>
+      </ul>
+    </div>
+    <div class="prod-card" style="border-color:var(--accent)">
+      <h4 style="color:var(--accent)">Observability</h4>
+      <ul>
+        <li>Structured logging</li>
+        <li>Step-by-step trace</li>
+        <li>duration_ms in response</li>
+        <li>LLM provider logged</li>
+      </ul>
+    </div>
+  </div>
+
+  <div style="background:var(--code-bg);border-radius:10px;padding:1.2rem;font-family:monospace;font-size:.82rem;line-height:1.8;color:#a8c7e8">
+    <span style="color:#6ee7b7"># Sample response from POST /api/query</span><br>
+    {<br>
+    &nbsp;&nbsp;<span style="color:#93c5fd">"query"</span>: <span style="color:#fca5a5">"What is the population of Germany?"</span>,<br>
+    &nbsp;&nbsp;<span style="color:#93c5fd">"answer"</span>: <span style="color:#fca5a5">"The population of Germany is approximately 83,240,525."</span>,<br>
+    &nbsp;&nbsp;<span style="color:#93c5fd">"country_name"</span>: <span style="color:#fca5a5">"Germany"</span>,<br>
+    &nbsp;&nbsp;<span style="color:#93c5fd">"requested_fields"</span>: [<span style="color:#fca5a5">"population"</span>],<br>
+    &nbsp;&nbsp;<span style="color:#93c5fd">"steps"</span>: [<span style="color:#fca5a5">"identify_node: ..."</span>, <span style="color:#fca5a5">"fetch_node: ..."</span>, <span style="color:#fca5a5">"synthesize_node: ..."</span>],<br>
+    &nbsp;&nbsp;<span style="color:#93c5fd">"error"</span>: <span style="color:#c4b5fd">null</span>,<br>
+    &nbsp;&nbsp;<span style="color:#93c5fd">"duration_ms"</span>: <span style="color:#6ee7b7">1430.2</span>,<br>
+    &nbsp;&nbsp;<span style="color:#93c5fd">"success"</span>: <span style="color:#6ee7b7">true</span><br>
+    }
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════ LIMITATIONS -->
+<section id="limitations">
+  <h2>Limitations &amp; Trade-offs</h2>
+  <div class="divider"></div>
+  <p class="lead">Honest assessment of what the current architecture does and doesn't handle well.</p>
+
+  <div class="two-col" style="margin-bottom:1.5rem">
+    <div class="limit-card red">
+      <h4>⚠ Known Limitations</h4>
+      <ul>
+        <li>Stateless — no conversation memory across turns</li>
+        <li>Country disambiguation delegated to API fuzzy search ("Congo" → first match)</li>
+        <li>Groq free tier: 14,400 req/day rate limit</li>
+        <li>IDENTIFY node is synchronous — blocks the async event loop</li>
+        <li>No response caching — identical queries always hit the LLM</li>
+      </ul>
+    </div>
+    <div class="limit-card blue">
+      <h4>✓ Design Trade-offs</h4>
+      <ul>
+        <li>LangGraph separates concerns — each node is independently testable</li>
+        <li>OpenAI SDK for all providers — swap with one env var</li>
+        <li>API normalised once in tools.py — downstream code never sees raw schema</li>
+        <li>Conditional edges make error routing explicit, not implicit</li>
+        <li>Groq default: free tier + sub-second inference</li>
+      </ul>
+    </div>
+  </div>
+
+  <div style="background:var(--white);border-radius:10px;padding:1.2rem;border:1.5px solid var(--teal);box-shadow:0 2px 10px rgba(0,0,0,.07)">
+    <strong style="color:var(--teal);font-size:.9rem;">Provider flexibility</strong>
+    <p style="font-size:.83rem;color:var(--muted);margin-top:.5rem;line-height:1.65">
+      Set <code style="background:var(--light-bg);padding:.1rem .3rem;border-radius:3px">LLM_PROVIDER=groq|gemini|anthropic</code>
+      to switch models. All three providers use the OpenAI-compatible REST endpoint via the <code>openai</code> SDK —
+      only the <code>base_url</code>, <code>api_key</code>, and model string change.
+    </p>
+    <div style="display:flex;gap:.6rem;flex-wrap:wrap;margin-top:.8rem">
+      <span style="background:var(--deep);color:var(--white);border-radius:4px;padding:.2rem .7rem;font-size:.78rem;font-weight:600">groq (default) · free · llama-3.3-70b</span>
+      <span style="background:var(--teal);color:var(--white);border-radius:4px;padding:.2rem .7rem;font-size:.78rem;font-weight:600">gemini · free · gemini-2.0-flash</span>
+      <span style="background:var(--midnight);color:var(--white);border-radius:4px;padding:.2rem .7rem;font-size:.78rem;font-weight:600">anthropic · paid · claude-sonnet-4-5</span>
+    </div>
+  </div>
+</section>
+
+<script>
+  // ── Nav routing ──
+  const navLinks = document.querySelectorAll('nav a');
+  const sections = document.querySelectorAll('section');
+
+  navLinks.forEach(link => {
+    link.addEventListener('click', e => {
+      e.preventDefault();
+      const target = link.dataset.section;
+      navLinks.forEach(l => l.classList.remove('active'));
+      sections.forEach(s => s.classList.remove('active'));
+      link.classList.add('active');
+      document.getElementById(target).classList.add('active');
+    });
+  });
+
+  // ── Flow tabs ──
+  const tabBtns = document.querySelectorAll('.tab-btn');
+  const flowContainers = document.querySelectorAll('.flow-container');
+
+  tabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn.dataset.flow;
+      tabBtns.forEach(b => b.classList.remove('active'));
+      flowContainers.forEach(f => f.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('flow-' + target).classList.add('active');
+      // Reset steps for this flow
+      document.querySelectorAll('#flow-' + target + ' .step').forEach(s => s.classList.remove('visible'));
+      const result = document.getElementById('result-' + target);
+      if (result) result.style.display = 'none';
+      const runBtn = document.getElementById('run-' + target);
+      if (runBtn) runBtn.disabled = false;
+    });
+  });
+
+  // ── Step-by-step animation ──
+  function runFlow(flowId) {
+    const container = document.getElementById('flow-' + flowId);
+    const steps = container.querySelectorAll('.step');
+    const result = document.getElementById('result-' + flowId);
+    const btn = document.getElementById('run-' + flowId);
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Running…';
+
+    steps.forEach(s => s.classList.remove('visible'));
+    if (result) result.style.display = 'none';
+
+    steps.forEach((step, i) => {
+      setTimeout(() => {
+        step.classList.add('visible');
+        if (i === steps.length - 1) {
+          setTimeout(() => {
+            if (result) result.style.display = 'block';
+            btn.innerHTML = '↺ Run again';
+            btn.disabled = false;
+          }, 500);
+        }
+      }, 600 + i * 800);
+    });
+  }
+
+  ['germany', 'japan', 'invalid', 'notfound'].forEach(id => {
+    const btn = document.getElementById('run-' + id);
+    if (btn) btn.addEventListener('click', () => runFlow(id));
+  });
+</script>
+</body>
+</html>
